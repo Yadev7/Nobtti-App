@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "BookingApp",
-    "slug": "BookingApp",
+    "name": "NobttiApp",
+    "slug": "NobttiApp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "bookingapp",
+    "scheme": "nobttiapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -38,7 +38,9 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-barcode-scanner"
     ],
     "experiments": {
       "typedRoutes": true,
