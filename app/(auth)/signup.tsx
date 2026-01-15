@@ -103,7 +103,7 @@ export default function SignupScreen() {
           إنشاء الحساب
         </Button>
 
-        <Button onPress={() => router.replace('/login' as any)} style={[styles.loginButton]}>
+        <Button onPress={() => router.replace('login' as any)} style={[styles.loginButton]}>
           عندك حساب؟ دخل من هنا
         </Button>
       </ScrollView>

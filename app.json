@@ -40,7 +40,8 @@
         }
       ],
       "@react-native-community/datetimepicker",
-      "expo-barcode-scanner"
+      "expo-barcode-scanner",
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,

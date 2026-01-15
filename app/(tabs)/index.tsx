@@ -6,16 +6,16 @@ import {
   getDoc,
   onSnapshot,
   query,
+  serverTimestamp,
   updateDoc,
   where
 } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
-import { Alert, FlatList, Linking, Modal, StyleSheet, View } from 'react-native';
+import { Alert, FlatList, Linking, Modal, Platform, StyleSheet, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import { ActivityIndicator, Avatar, Button, Card, IconButton, List, Text, Title } from 'react-native-paper';
-import { auth, db } from '../../constants/firebase';
-// استيراد مكتبة QR Code (تأكد من تثبيتها)
+import { ActivityIndicator, Avatar, Button, Card, IconButton, List, Text, TextInput, Title } from 'react-native-paper';
 import QRCode from 'react-native-qrcode-svg';
+import { auth, db } from '../../constants/firebase';
 
 export default function DashboardScreen() {
   const [bookings, setBookings] = useState<any[]>([]);
@@ -23,19 +23,16 @@ export default function DashboardScreen() {
   const [userName, setUserName] = useState<string>('');
   const [stats, setStats] = useState({ total: 0, confirmed: 0, pending: 0 });
   const [loading, setLoading] = useState(true);
-  
-  // حالات الـ QR Code Modal
+
+  // حالات الـ QR Code والتقييم
   const [qrModalVisible, setQrModalVisible] = useState(false);
   const [selectedBookingId, setSelectedBookingId] = useState('');
+  const [ratingModalVisible, setRatingModalVisible] = useState(false);
+  const [selectedBookingForRating, setSelectedBookingForRating] = useState<any>(null);
+  const [ratingScore, setRatingScore] = useState(5);
+  const [comment, setComment] = useState('');
 
   const router = useRouter();
-
-  const [region] = useState({
-    latitude: 33.9716,
-    longitude: -6.8498,
-    latitudeDelta: 0.05,
-    longitudeDelta: 0.05,
-  });
 
   useEffect(() => {
     const user = auth.currentUser;
@@ -59,13 +56,11 @@ export default function DashboardScreen() {
 
             unsubscribe = onSnapshot(q, (snapshot) => {
               const data: any[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-              
               setStats({
                 total: data.length,
                 confirmed: data.filter((i: any) => i.status === 'confirmed').length,
                 pending: data.filter((i: any) => i.status === 'pending').length,
               });
-
               setBookings(data.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
               setLoading(false);
             });
@@ -79,7 +74,6 @@ export default function DashboardScreen() {
     return () => unsubscribe && unsubscribe();
   }, []);
 
-
   const updateStatus = async (bookingId: string, newStatus: string) => {
     try {
       await updateDoc(doc(db, "bookings", bookingId), { status: newStatus });
@@ -89,68 +83,76 @@ export default function DashboardScreen() {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert("خروج", "واش بغيتي تخرج؟", [
-      { text: "إلغاء", style: "cancel" },
-      { text: "خروج", style: "destructive", onPress: () => signOut(auth) }
-    ]);
+  const submitRating = async () => {
+    if (!selectedBookingForRating) return;
+    try {
+      const bookingId = selectedBookingForRating.id;
+      const proId = selectedBookingForRating.adminId;
+
+      await updateDoc(doc(db, "bookings", bookingId), {
+        rating: ratingScore,
+        comment: comment,
+        ratedAt: serverTimestamp(),
+      });
+
+      // تحديث متوسط تقييم المهني
+      const proDocRef = doc(db, "users", proId);
+      const proDoc = await getDoc(proDocRef);
+      if (proDoc.exists()) {
+        const data = proDoc.data();
+        const oldCount = data.reviewsCount || 0;
+        const oldRating = data.averageRating || 0;
+        const newCount = oldCount + 1;
+        const newAverage = ((oldRating * oldCount) + ratingScore) / newCount;
+
+        await updateDoc(proDocRef, {
+          averageRating: newAverage,
+          reviewsCount: newCount
+        });
+      }
+
+      Alert.alert("شكراً ✅", "تم تسجيل تقييمك بنجاح");
+      setRatingModalVisible(false);
+      setComment('');
+    } catch {
+      Alert.alert("خطأ", "فشل إرسال التقييم");
+    }
   };
 
-  const showQRCode = (id: string) => {
-    setSelectedBookingId(id);
-    setQrModalVisible(true);
+  const openInGPS = (coords: any) => {
+    if (!coords) return;
+    const url = Platform.select({
+      ios: `maps:0,0?q=المحل@${coords.latitude},${coords.longitude}`,
+      android: `geo:0,0?q=${coords.latitude},${coords.longitude}(المحل)`
+    });
+    Linking.openURL(url!);
   };
 
   const HeaderComponent = () => (
     <View>
       <View style={styles.userInfoSection}>
-        <Avatar.Text size={50} label={userName.substring(0, 1)} style={{backgroundColor: '#6200ee'}} />
+        <Avatar.Text size={50} label={userName.substring(0, 1)} style={{ backgroundColor: '#6200ee' }} />
         <View style={styles.userTextWrapper}>
           <Title style={styles.userNameText}>{userName}</Title>
           <Text style={styles.roleText}>واجهة {role === 'pro' ? "المهني" : "الزبون"}</Text>
         </View>
-        <IconButton icon="logout" iconColor="red" size={26} onPress={handleLogout} />
+        <IconButton icon="logout" iconColor="red" size={26} onPress={() => signOut(auth)} />
       </View>
 
       {role === 'pro' && (
         <>
           <View style={styles.statsRow}>
-            <View style={[styles.statBox, { borderTopColor: '#6200ee' }]}>
-              <Text style={styles.statNum}>{stats.total}</Text>
-              <Text style={styles.statLab}>الكل</Text>
-            </View>
-            <View style={[styles.statBox, { borderTopColor: 'green' }]}>
-              <Text style={[styles.statNum, { color: 'green' }]}>{stats.confirmed}</Text>
-              <Text style={styles.statLab}>مقبولة</Text>
-            </View>
-            <View style={[styles.statBox, { borderTopColor: 'orange' }]}>
-              <Text style={[styles.statNum, { color: 'orange' }]}>{stats.pending}</Text>
-              <Text style={styles.statLab}>جديدة</Text>
-            </View>
+            <View style={[styles.statBox, { borderTopColor: '#6200ee' }]}><Text style={styles.statNum}>{stats.total}</Text><Text style={styles.statLab}>الكل</Text></View>
+            <View style={[styles.statBox, { borderTopColor: 'green' }]}><Text style={[styles.statNum, { color: 'green' }]}>{stats.confirmed}</Text><Text style={styles.statLab}>مقبولة</Text></View>
+            <View style={[styles.statBox, { borderTopColor: 'orange' }]}><Text style={[styles.statNum, { color: 'orange' }]}>{stats.pending}</Text><Text style={styles.statLab}>جديدة</Text></View>
           </View>
-          
-          {/* زر السكنير خاص بالمهني فقط */}
-          <Button 
-            mode="contained" 
-            icon="qrcode-scan" 
-            onPress={() => router.push('/scanner' as any)}
-            style={styles.scannerBtn}
-          >
-سكاني كود زبون لتاكيد الحضور
+          <Button mode="contained" icon="qrcode-scan" onPress={() => router.push('/scanner' as any)} style={styles.scannerBtn}>
+            سكاني كود زبون لتاكيد الحضور
           </Button>
-
-          <Title style={styles.sectionTitle}>موقع العمل 📍</Title>
-          <View style={styles.mapContainer}>
-            <MapView style={styles.map} initialRegion={region}>
-              <Marker coordinate={region} title="محلي" />
-            </MapView>
-          </View>
         </>
       )}
 
-      <Title style={styles.sectionTitle}>
-        {role === 'pro' ? "طلبات الحجز الحالية" : "مواعيدي المحجوزة"}
-      </Title>
+      <Title style={styles.sectionTitle}>{role === 'pro' ? "طلبات الحجز الحالية" : "مواعيدي المحجوزة"}</Title>
     </View>
   );
 
@@ -163,10 +165,8 @@ export default function DashboardScreen() {
         keyExtractor={(item) => item.id}
         ListHeaderComponent={HeaderComponent}
         ListEmptyComponent={<Text style={styles.empty}>لا توجد مواعيد حالياً</Text>}
-        contentContainerStyle={{ paddingBottom: 20 }}
         renderItem={({ item }) => {
-          // تنسيق التاريخ إذا كان مخزن كـ ISO
-          const displayTime = item.appointmentDate 
+          const displayTime = item.appointmentDate
             ? new Date(item.appointmentDate).toLocaleString('ar-MA', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
             : item.time;
 
@@ -174,37 +174,47 @@ export default function DashboardScreen() {
             <Card style={styles.card}>
               <Card.Content>
                 <List.Item
-                  title={role === 'pro' ? item.customerName : `حجز عند: ${item.service}`}
-                  description={`الخدمة: ${item.service}\nالوقت: ${displayTime}`}
+                  title={role === 'pro' ? item.customerName : `حجز: ${item.service}`}
+                  description={`الوقت: ${displayTime}`}
                   left={props => <List.Icon {...props} icon="calendar-clock" />}
                   right={() => (
-                    <View style={styles.statusBadge}>
-                      <Text style={[styles.statusTxt, { 
-                        color: item.status === 'confirmed' ? 'green' : 
-                               item.status === 'completed' ? '#6200ee' :
-                               item.status === 'rejected' ? 'red' : 'orange' 
-                      }]}>
-                        {item.status === 'pending' ? '⏳ معلق' : 
-                         item.status === 'confirmed' ? '✅ مقبول' : 
-                         item.status === 'completed' ? '🏁 تم الحضور' : '❌ مرفوض'}
-                      </Text>
-                    </View>
+                    <Text style={[styles.statusTxt, { color: item.status === 'confirmed' ? 'green' : item.status === 'completed' ? '#6200ee' : 'orange' }]}>
+                      {item.status === 'pending' ? '⏳ معلق' : item.status === 'confirmed' ? '✅ مقبول' : item.status === 'completed' ? '🏁 تم الحضور' : '❌ مرفوض'}
+                    </Text>
                   )}
                 />
+
+                {/* الخريطة تظهر للزبون فقط في المواعيد المقبولة ليعرف الطريق */}
+                {role === 'user' && item.status === 'confirmed' && item.proLocation && (
+                  <View style={styles.itemMapContainer}>
+                    <MapView 
+                      style={styles.smallMap} 
+                      scrollEnabled={false}
+                      initialRegion={{
+                        latitude: item.proLocation.latitude,
+                        longitude: item.proLocation.longitude,
+                        latitudeDelta: 0.01,
+                        longitudeDelta: 0.01,
+                      }}
+                    >
+                      <Marker coordinate={item.proLocation} />
+                    </MapView>
+                    <Button icon="navigation" onPress={() => openInGPS(item.proLocation)}>إطلاق نظام GPS</Button>
+                  </View>
+                )}
               </Card.Content>
+
               <Card.Actions>
                 {role === 'pro' && item.status === 'pending' && (
-                  <>
-                    <Button mode="contained" buttonColor="green" onPress={() => updateStatus(item.id, 'confirmed')}>قبول</Button>
-                    <Button mode="contained" buttonColor="red" onPress={() => updateStatus(item.id, 'rejected')}>رفض</Button>
-                  </>
+                  <><Button onPress={() => updateStatus(item.id, 'confirmed')}>قبول</Button><Button onPress={() => updateStatus(item.id, 'rejected')}>رفض</Button></>
                 )}
-                
-                {/* زر QR Code للزبون فقط إذا تم قبول الموعد */}
                 {role === 'user' && item.status === 'confirmed' && (
-                  <Button icon="qrcode" mode="contained" onPress={() => showQRCode(item.id)}>كود الحضور</Button>
+                  <Button icon="qrcode" mode="contained" onPress={() => { setSelectedBookingId(item.id); setQrModalVisible(true); }}>كود الحضور</Button>
                 )}
-
+                {/* زر التقييم يظهر للزبون بعد انتهاء الخدمة */}
+                {role === 'user' && item.status === 'completed' && !item.rating && (
+                  <Button icon="star" mode="contained" buttonColor="#FFD700" textColor="#000" onPress={() => { setSelectedBookingForRating(item); setRatingModalVisible(true); }}>قيم الخدمة</Button>
+                )}
                 {item.status !== 'rejected' && item.status !== 'completed' && (
                   <IconButton icon="whatsapp" iconColor="green" onPress={() => Linking.openURL(`whatsapp://send?phone=${item.phone}`)} />
                 )}
@@ -214,14 +224,30 @@ export default function DashboardScreen() {
         }}
       />
 
-      {/* مودال الـ QR Code للزبون */}
+      {/* Modal التقييم */}
+      <Modal visible={ratingModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Title>كيف كانت خدمتك؟ ⭐</Title>
+            <View style={styles.starsRow}>
+              {[1, 2, 3, 4, 5].map((s) => (
+                <IconButton key={s} icon={s <= ratingScore ? "star" : "star-outline"} iconColor="#FFD700" size={32} onPress={() => setRatingScore(s)} />
+              ))}
+            </View>
+            <TextInput label="تعليقك (اختياري)" value={comment} onChangeText={setComment} mode="outlined" multiline style={styles.ratingInput} />
+            <Button mode="contained" onPress={submitRating} style={styles.submitBtn}>إرسال التقييم</Button>
+            <Button onPress={() => setRatingModalVisible(false)}>إلغاء</Button>
+          </View>
+        </View>
+      </Modal>
+
+      {/* مودال الـ QR Code */}
       <Modal visible={qrModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Title style={{marginBottom: 10}}>وري الكود للمهني 🤳</Title>
-            <QRCode value={selectedBookingId} size={220} color="#6200ee" />
-            <Text style={styles.modalHint}>هاد الكود خاص بهاد الموعد فقط لضمان حضورك.</Text>
-            <Button mode="outlined" onPress={() => setQrModalVisible(false)} style={{marginTop: 20}}>إغلاق</Button>
+            <Title>وري الكود للمهني 🤳</Title>
+            <QRCode value={selectedBookingId} size={200} color="#6200ee" />
+            <Button onPress={() => setQrModalVisible(false)} style={{ marginTop: 20 }}>إغلاق</Button>
           </View>
         </View>
       </Modal>
@@ -239,29 +265,16 @@ const styles = StyleSheet.create({
   statBox: { width: '31%', backgroundColor: '#fff', padding: 10, borderRadius: 10, alignItems: 'center', elevation: 2, borderTopWidth: 4 },
   statNum: { fontSize: 20, fontWeight: 'bold' },
   statLab: { fontSize: 12, color: '#666' },
-  scannerBtn: { marginBottom: 20, paddingVertical: 5, borderRadius: 12, backgroundColor: '#9280ab', color: '#020202'  },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginVertical: 10, color: '#333' },
-  mapContainer: { height: 160, borderRadius: 15, overflow: 'hidden', elevation: 3, marginBottom: 15 },
-  map: { width: '100%', height: '100%' },
-  card: { marginBottom: 10, borderRadius: 12, elevation: 2, backgroundColor: '#fff' },
-  statusBadge: { justifyContent: 'center' },
+  scannerBtn: { marginBottom: 20, borderRadius: 12, backgroundColor: '#6200ee' },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginVertical: 10 },
+  card: { marginBottom: 10, borderRadius: 12, backgroundColor: '#fff' },
   statusTxt: { fontSize: 12, fontWeight: 'bold' },
   empty: { textAlign: 'center', marginTop: 20, color: '#999' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: '#fff', padding: 30, borderRadius: 25, alignItems: 'center', width: '85%' },
-  modalHint: { marginTop: 15, textAlign: 'center', color: '#666', fontSize: 13 },
-  modalCenteredView: {
-  flex: 1,
-  justifyContent: 'center',
-  alignItems: 'center',
-  backgroundColor: 'rgba(0,0,0,0.5)'
-},
-modalView: {
-  backgroundColor: 'white',
-  borderRadius: 20,
-  padding: 35,
-  alignItems: 'center',
-  elevation: 5,
-  width: '80%'
-},
+  modalContent: { backgroundColor: '#fff', padding: 25, borderRadius: 20, alignItems: 'center', width: '85%' },
+  starsRow: { flexDirection: 'row', marginVertical: 10 },
+  ratingInput: { width: '100%', marginBottom: 15 },
+  submitBtn: { width: '100%', marginBottom: 5 },
+  itemMapContainer: { height: 150, marginTop: 10, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#ddd' },
+  smallMap: { width: '100%', height: 100 },
 });

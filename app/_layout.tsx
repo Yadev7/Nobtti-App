@@ -15,7 +15,7 @@ export default function RootLayout() {
 
     if (!user) {
       if (!inAuthGroup) {
-        router.replace('/(auth)/login' as any);
+        router.replace('login' as any);
       }
     } else {
       try {
@@ -25,7 +25,7 @@ export default function RootLayout() {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           // التوجيه كيوقع فقط إلا كنا فـ صفحات التسجيل/الدخول
-          if (inAuthGroup || segments.length === 0) {
+          if (inAuthGroup) {
             if (userData?.role === 'pro') {
               router.replace('/(tabs)');
             } else {
@@ -44,13 +44,13 @@ export default function RootLayout() {
   });
 
   return () => authListener();
-}, [segments]);
+}, [segments, router]);
 
   return (
     <PaperProvider>
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
-      <Stack.Screen name="(auth)/signup" options={{ headerShown: false }} />
+      <Stack.Screen name="login" options={{ headerShown: false }} />
+      <Stack.Screen name="signup" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="booking" options={{ presentation: 'modal' }} />
     </Stack>
