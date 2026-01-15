@@ -15,11 +15,6 @@ export default function SignupScreen() {
   const router = useRouter();
   const [role, setRole] = useState('pro');
 
-  // --- New state for the Dropdown Menu ---
-  const [visible, setVisible] = useState(false);
-  const openMenu = () => setVisible(true);
-  const closeMenu = () => setVisible(false);
-
   const professions = ["حلاق", "طبيب", "محامي", "ميكانيكي"];
 
   const handleSignup = async () => {

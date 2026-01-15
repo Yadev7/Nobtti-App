@@ -56,7 +56,7 @@ export default function ProfileScreen() {
       
       setLocationCoords(coords);
       Alert.alert("تم بنجاح ✅", "لقينا إحداثيات المحل ديالك، ما تنساش تبرك على حفظ التغييرات.");
-    } catch (_) {
+    } catch {
       Alert.alert("خطأ", "ما قدرناش نجيبو الموقع، تأكد من GPS.");
     } finally {
       setLocating(false);
@@ -80,7 +80,7 @@ export default function ProfileScreen() {
         await updateDoc(userRef, updateData);
         Alert.alert("تم بنجاح ✅", "تم تحديث معلوماتك الشخصية");
       }
-    } catch (_) {
+    } catch {
       Alert.alert("خطأ", "وقع مشكل أثناء التحديث");
     } finally {
       setUpdating(false);
