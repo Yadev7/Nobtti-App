@@ -1,22 +1,24 @@
-import * as Location from 'expo-location'; // مكتبة الموقع
+import * as Location from 'expo-location';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Avatar, Button, Card, Text, TextInput, Title } from 'react-native-paper';
+import { ActivityIndicator, Avatar, Button, Card, Chip, Text, TextInput, Title } from 'react-native-paper';
 import { auth, db } from '../../constants/firebase';
 
 export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
-  const [locating, setLocating] = useState(false); // حالة جلب الموقع
+  const [locating, setLocating] = useState(false);
   const [role, setRole] = useState('');
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [profession, setProfession] = useState('');
   const [location, setLocation] = useState('');
-  const [locationCoords, setLocationCoords] = useState<any>(null); // حفظ الإحداثيات
+  const [locationCoords, setLocationCoords] = useState<any>(null);
+
+  const professions = ["حلاق", "طبيب", "محامي", "ميكانيكي", "خياط", "مصلح"];
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -28,9 +30,9 @@ export default function ProfileScreen() {
           setFullName(data.fullName || '');
           setPhone(data.phone || '');
           setRole(data.role || 'user');
-          setProfession(data.profession || '');
+          setProfession(data.profession || 'حلاق');
           setLocation(data.location || '');
-          setLocationCoords(data.locationCoords || null); // جلب الموقع المحفوظ
+          setLocationCoords(data.locationCoords || null);
         }
       }
       setLoading(false);
@@ -38,13 +40,12 @@ export default function ProfileScreen() {
     fetchProfile();
   }, []);
 
-  // دالة جلب إحداثيات المحل (GPS)
   const handleGetLocation = async () => {
     setLocating(true);
     try {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert("تنبيه", "خاصك تعطي إذن الوصول للموقع باش نحدد بلاصة المحل.");
+        Alert.alert("تنبيه ⚠️", "خاصك تعطي إذن الوصول للموقع باش نحدد بلاصة المحل.");
         return;
       }
 
@@ -57,7 +58,7 @@ export default function ProfileScreen() {
       setLocationCoords(coords);
       Alert.alert("تم بنجاح ✅", "لقينا إحداثيات المحل ديالك، ما تنساش تبرك على حفظ التغييرات.");
     } catch {
-      Alert.alert("خطأ", "ما قدرناش نجيبو الموقع، تأكد من GPS.");
+      Alert.alert("خطأ ❌", "ما قدرناش نجيبو الموقع، تأكد من الـ GPS.");
     } finally {
       setLocating(false);
     }
@@ -74,40 +75,27 @@ export default function ProfileScreen() {
         if (role === 'pro') {
           updateData.profession = profession;
           updateData.location = location;
-          updateData.locationCoords = locationCoords; // حفظ الإحداثيات فـ Firestore
+          updateData.locationCoords = locationCoords;
         }
 
         await updateDoc(userRef, updateData);
         Alert.alert("تم بنجاح ✅", "تم تحديث معلوماتك الشخصية");
       }
     } catch {
-      Alert.alert("خطأ", "وقع مشكل أثناء التحديث");
+      Alert.alert("خطأ ❌", "وقع مشكل أثناء التحديث");
     } finally {
       setUpdating(false);
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert("خروج", "واش بغيتي تخرج؟", [
-      { text: "إلغاء", style: "cancel" },
-      { text: "خروج", style: "destructive", onPress: () => signOut(auth) }
-    ]);
-  };
-
-  if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" />;
+  if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" color="#6200ee" />;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={styles.header}>
-        <Avatar.Text
-          size={80}
-          label={fullName.substring(0, 1)}
-          style={{ backgroundColor: '#6200ee' }}
-        />
+        <Avatar.Text size={80} label={fullName.substring(0, 1)} style={{ backgroundColor: '#6200ee' }} />
         <Title style={styles.nameText}>{fullName}</Title>
-        <Text style={styles.roleTag}>
-          {role === 'pro' ? "حساب مهني" : "حساب زبون"}
-        </Text>
+        <Text style={styles.roleTag}>{role === 'pro' ? "حساب مهني" : "حساب زبون"}</Text>
       </View>
 
       <Card style={styles.formCard}>
@@ -117,24 +105,30 @@ export default function ProfileScreen() {
 
           {role === 'pro' && (
             <>
-              <TextInput label="المهنة (مثلاً: حلاق...)" value={profession} onChangeText={setProfession} mode="outlined" style={styles.input} />
+              <Text style={styles.sectionLabel}>تحديث المهنة الحالية:</Text>
+              <View style={styles.chipContainer}>
+                {professions.map((p) => (
+                  <Chip
+                    key={p}
+                    selected={profession === p}
+                    onPress={() => setProfession(p)}
+                    style={[styles.chip, profession === p ? styles.selectedChip : styles.unselectedChip]}
+                    selectedColor={profession === p ? "#fff" : "#6200ee"}
+                    showSelectedCheck={false}
+                  >
+                    {p}
+                  </Chip>
+                ))}
+              </View>
+
               <TextInput label="العنوان (كتابةً)" value={location} onChangeText={setLocation} mode="outlined" style={styles.input} />
               
-              {/* جزء تحديد الموقع الجغرافي */}
               <View style={styles.locationSection}>
                 <Text style={styles.locationTitle}>موقع المحل على الخريطة 🗺️</Text>
-                <Button 
-                  mode="outlined" 
-                  icon="map-marker-radius" 
-                  onPress={handleGetLocation}
-                  loading={locating}
-                  style={styles.locationBtn}
-                >
+                <Button mode="outlined" icon="map-marker-radius" onPress={handleGetLocation} loading={locating} style={styles.locationBtn}>
                   {locationCoords ? "تحديث إحداثيات الموقع" : "تحديد موقع المحل حالياً"}
                 </Button>
-                {locationCoords && (
-                  <Text style={styles.locationStatus}>✅ الموقع مسجل بنجاح</Text>
-                )}
+                {locationCoords && <Text style={styles.locationStatus}>✅ الموقع مسجل بنجاح</Text>}
               </View>
             </>
           )}
@@ -143,12 +137,11 @@ export default function ProfileScreen() {
             حفظ التغييرات
           </Button>
 
-          <Button mode="outlined" onPress={handleLogout} textColor="red" style={styles.logoutBtn}>
+          <Button mode="outlined" onPress={() => signOut(auth)} textColor="red" style={styles.logoutBtn}>
             تسجيل الخروج
           </Button>
         </Card.Content>
       </Card>
-
       <Text style={styles.footerText}>نوبتي v1.0.0 - جميع الحقوق محفوظة</Text>
     </ScrollView>
   );
@@ -160,12 +153,17 @@ const styles = StyleSheet.create({
   nameText: { marginTop: 10, fontSize: 22, fontWeight: 'bold', color: '#6200ee' },
   roleTag: { color: '#6200ee', fontWeight: 'bold', fontSize: 14, backgroundColor: '#eaddff', paddingHorizontal: 15, paddingVertical: 4, borderRadius: 20 },
   formCard: { marginHorizontal: 15, borderRadius: 15, elevation: 3 },
-  input: { marginBottom: 15 },
-  saveBtn: { marginTop: 10, borderRadius: 8, paddingVertical: 5 },
+  input: { marginBottom: 15, textAlign: 'right' },
+  sectionLabel: { fontSize: 15, fontWeight: 'bold', color: '#6200ee', marginBottom: 8, textAlign: 'right' },
+  chipContainer: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginBottom: 15, justifyContent: 'flex-start' },
+  chip: { height: 40, justifyContent: 'center' },
+  selectedChip: { backgroundColor: '#6200ee' },
+  unselectedChip: { backgroundColor: '#fff', borderColor: '#6200ee', borderWidth: 1 },
+  saveBtn: { marginTop: 10, borderRadius: 8, paddingVertical: 5, backgroundColor: '#6200ee' },
   logoutBtn: { marginTop: 15, borderRadius: 8, borderColor: 'red' },
   footerText: { textAlign: 'center', marginTop: 30, color: '#999', fontSize: 12 },
   locationSection: { marginBottom: 20, padding: 10, backgroundColor: '#f9f9f9', borderRadius: 10, borderWidth: 1, borderColor: '#ccc', borderStyle: 'dashed' },
-  locationTitle: { fontSize: 14, marginBottom: 10, fontWeight: 'bold' },
+  locationTitle: { fontSize: 14, marginBottom: 10, fontWeight: 'bold', textAlign: 'right' },
   locationBtn: { borderRadius: 8 },
   locationStatus: { color: 'green', fontSize: 12, marginTop: 5, textAlign: 'center', fontWeight: 'bold' }
 });

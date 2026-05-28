@@ -15,7 +15,8 @@ export default function SignupScreen() {
   const router = useRouter();
   const [role, setRole] = useState('pro');
 
-  const professions = ["حلاق", "طبيب", "محامي", "ميكانيكي"];
+  // اللستة الرسمية الموحدة للمهن فـ نوبتي
+  const professions = ["حلاق", "طبيب", "محامي", "ميكانيكي", "خياط", "مصلح"];
 
   const handleSignup = async () => {
     if (!email || !password || !fullName) {
@@ -34,35 +35,38 @@ export default function SignupScreen() {
         email: email,
         profession: role === 'pro' ? profession : 'زبون',
         role: role,
+        phone: '', // حقل فارغ أولي لتفادي الـ undefined
+        location: '',
+        locationCoords: null,
+        averageRating: 0,
+        reviewsCount: 0,
         createdAt: new Date().toISOString(),
       });
 
       setLoading(false);
-      Alert.alert("مبروك", "تم إنشاء حسابك بنجاح");
-      router.replace('/(tabs)');
+      Alert.alert("مبروك 🎉", "تم إنشاء حسابك بنجاح");
+      router.replace(role === 'pro' ? '/(tabs)' : '/(tabs)/explore');
     } catch (error: any) {
       setLoading(false);
-      Alert.alert("خطأ", error.message);
+      Alert.alert("خطأ ❌", error.message);
     }
   };
 
   return (
     <Provider>
       <ScrollView contentContainerStyle={styles.container}>
-        <Title style={styles.title}>انشاء حساب جديد</Title>
+        <Title style={styles.title}>إنشاء حساب جديد ✨</Title>
 
         <TextInput label="الاسم الكامل" value={fullName} onChangeText={setFullName} mode="flat" style={styles.input} />
         <TextInput label="الإيميل" value={email} onChangeText={setEmail} mode="flat" style={styles.input} keyboardType="email-address" autoCapitalize="none" />
         <TextInput label="كلمة السر" value={password} onChangeText={setPassword} mode="flat" style={styles.input} secureTextEntry />
 
-        {/* --- Role Selection --- */}
         <Text style={styles.label}>ساتسجل ك:</Text>
         <RadioButton.Group onValueChange={value => setRole(value)} value={role}>
-          <View style={styles.radioItem}><RadioButton value="pro" /><Text style={[styles.radioText, styles.radioButton]}>صاحب محل (مهني)</Text></View>
-          <View style={styles.radioItem}><RadioButton value="user" /><Text style={[styles.radioText, styles.radioButton]}>زبون</Text></View>
+          <View style={styles.radioItem}><RadioButton value="pro" /><Text style={styles.radioText}>صاحب محل (مهني)</Text></View>
+          <View style={styles.radioItem}><RadioButton value="user" /><Text style={styles.radioText}>زبون</Text></View>
         </RadioButton.Group>
 
-        {/* --- Conditional Profession List (Only if role is pro) --- */}
         {role === 'pro' && (
           <View style={{ marginTop: 10 }}>
             <Text style={styles.label}>حدد مجال عملك:</Text>
@@ -72,20 +76,11 @@ export default function SignupScreen() {
                 return (
                   <Card
                     key={p}
-                    style={[
-                      styles.professionCard,
-                      isSelected && styles.selectedCard
-                    ]}
+                    style={[styles.professionCard, isSelected && styles.selectedCard]}
                     onPress={() => setProfession(p)}
                   >
                     <Card.Content style={styles.cardContent}>
-                      <Text style={[
-                        styles.professionText,
-                        isSelected && styles.selectedText
-                      ]}>
-                        {p}
-                      </Text>
-                      {isSelected}
+                      <Text style={[styles.professionText, isSelected && styles.selectedText]}>{p}</Text>
                     </Card.Content>
                   </Card>
                 );
@@ -98,7 +93,7 @@ export default function SignupScreen() {
           إنشاء الحساب
         </Button>
 
-        <Button onPress={() => router.replace('login' as any)} style={[styles.loginButton]}>
+        <Button onPress={() => router.replace('login' as any)} style={styles.loginButton}>
           عندك حساب؟ دخل من هنا
         </Button>
       </ScrollView>
@@ -109,57 +104,16 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   container: { padding: 20, flexGrow: 1, justifyContent: 'center', backgroundColor: '#fff' },
   title: { textAlign: 'center', marginBottom: 20, fontSize: 24, fontWeight: 'bold', color: '#6200ee' },
-  input: { marginBottom: 12, color: '#6200ee' },
-  label: { marginTop: 15, marginBottom: 5, fontWeight: 'bold', fontSize: 16, color: '#6200ee' },
-  radioItem: { flexDirection: 'row', alignItems: 'center', marginVertical: 2, color: '#6200ee' },
-  button: { marginTop: 25, paddingVertical: 5, color: '#6200ee' },
-  radioText: { color: '#6200ee', fontSize: 16 },
-  radioButton: { color: '#6200ee', fontSize: 16 },
-  loginButton: { marginTop: 10, paddingVertical: 5, color: '#f21313', backgroundColor: '#808080', fontWeight: 'bold' },
-  // Grid layout for Cards
-  professionGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  professionCard: {
-    width: '48%', // Two columns
-    marginBottom: 10,
-    backgroundColor: '#f9f9f9',
-    elevation: 0, // Flat look
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  selectedCard: {
-    borderColor: '#6200ee',
-    backgroundColor: '#f3e5f5', // Light purple background
-    borderWidth: 2,
-  },
-  cardContent: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  professionText: {
-    fontSize: 16,
-    color: '#333',
-  },
-  selectedText: {
-    color: '#6200ee',
-    fontWeight: 'bold',
-  },
-
-  // Style for Chips (if you choose Option 2)
-  chipContainer: {
-    flexDirection: 'row-reverse', // Matches Arabic text flow
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 10,
-  },
-  chip: {
-    marginBottom: 8,
-    paddingHorizontal: 4,
-  },
+  input: { marginBottom: 12, textAlign: 'right' },
+  label: { marginTop: 15, marginBottom: 5, fontWeight: 'bold', fontSize: 16, color: '#6200ee', textAlign: 'right' },
+  radioItem: { flexDirection: 'row-reverse', alignItems: 'center', marginVertical: 4, justifyContent: 'flex-end' },
+  button: { marginTop: 25, paddingVertical: 5, backgroundColor: '#6200ee' },
+  radioText: { color: '#6200ee', fontSize: 16, marginRight: 10 },
+  loginButton: { marginTop: 15, paddingVertical: 5, color: '#6200ee' },
+  professionGrid: { flexDirection: 'row-reverse', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 10 },
+  professionCard: { width: '48%', marginBottom: 10, backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#e0e0e0', elevation: 0 },
+  selectedCard: { borderColor: '#6200ee', backgroundColor: '#f3e5f5', borderWidth: 2 },
+  cardContent: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 10 },
+  professionText: { fontSize: 16, color: '#333' },
+  selectedText: { color: '#6200ee', fontWeight: 'bold' },
 });

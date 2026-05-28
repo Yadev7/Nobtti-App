@@ -3,20 +3,24 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { ActivityIndicator, FAB, Text } from 'react-native-paper';
+// استيراد أدوات الفايربيس
+import { doc, updateDoc } from 'firebase/firestore';
+import { auth, db } from '../constants/firebase'; // تأكد من صحة مسار ملف الفايربيس عندك
 
 export default function ProfessionalMap() {
   const [location, setLocation] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [updatingDb, setUpdatingDb] = useState(false); // ستايت لمعرفة واش جاري الحفظ ف الفايربيس
   const mapRef = useRef<MapView>(null);
 
-  // 1. دالة لجلب الموقع الحالي
+  // 1. دالة لجلب الموقع الحالي وحفظه تلقائياً في قاعدة البيانات
   const getMyLocation = async () => {
     try {
       setLoading(true);
       // طلب الإذن
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert("خطأ", "خاصنا إذن الموقع باش نحددو بلاصة المحل.");
+        Alert.alert("خطأ ⚠️", "خاصنا إذن الموقع باش نحددو بلاصة المحل.");
         setLoading(false);
         return;
       }
@@ -37,11 +41,29 @@ export default function ProfessionalMap() {
       
       // تحريك الخريطة للموقع الجديد بانسيابية
       mapRef.current?.animateToRegion(newRegion, 1000);
+
+      // ✨ الإضافة: حفظ الموقع تلقائياً ف الفايربيس للمهني الحالي
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        setUpdatingDb(true);
+        const userRef = doc(db, "users", currentUser.uid);
+        
+        // التحديث في حقل locationCoords بظبط كيف ما هو ف الداتا بيز ديالك
+        await updateDoc(userRef, {
+          locationCoords: {
+            latitude: userLocation.coords.latitude,
+            longitude: userLocation.coords.longitude,
+          }
+        });
+        console.log("📍 تم تحديث إحداثيات المحل في الفايربيس بنجاح!");
+      }
       
     } catch (error) {
-      Alert.alert("مشكل", "ما قدرناش نجيبو الموقع ديالك دابا.");
+      console.error(error);
+      Alert.alert("مشكل ❌", "ما قدرناش نجيبو الموقع ديالك أو نحفظوه دابا.");
     } finally {
       setLoading(false);
+      setUpdatingDb(false);
     }
   };
 
@@ -53,7 +75,7 @@ export default function ProfessionalMap() {
     return (
       <View style={styles.center}>
         <ActivityIndicator animating={true} color="#6200ee" />
-        <Text style={{marginTop: 10}}>جاري تحديد موقعك...</Text>
+        <Text style={{ marginTop: 10 }}>جاري تحديد موقعك وتحديث المحل... 🗺️</Text>
       </View>
     );
   }
@@ -81,7 +103,7 @@ export default function ProfessionalMap() {
               longitude: location.longitude,
             }}
             title="موقع محلك"
-            description="هذا هو الموقع اللي غيشوفوه الزبناء"
+            description={updatingDb ? "جاري الحفظ في السيرفر..." : "هذا هو الموقع اللي غيشوفوه الزبناء"}
             pinColor="#6200ee"
           />
         )}
@@ -92,6 +114,7 @@ export default function ProfessionalMap() {
         icon="crosshairs-gps"
         style={styles.fab}
         onPress={getMyLocation}
+        loading={updatingDb} // كيدور يلا كان كيسيفط للداتابيز
         small
       />
     </View>
@@ -100,7 +123,7 @@ export default function ProfessionalMap() {
 
 const styles = StyleSheet.create({
   container: {
-    height: 250, // العلو اللي بغيتي يبان فـ Dashboard
+    height: 250, // العلو اللّي ف الـ Dashboard
     width: '100%',
     borderRadius: 15,
     overflow: 'hidden',

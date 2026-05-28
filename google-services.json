@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "615212946308",
+    "project_id": "bookingapp-a78ce",
+    "storage_bucket": "bookingapp-a78ce.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:615212946308:android:6bfb2bb373051366a203d1",
+        "android_client_info": {
+          "package_name": "com.yadev7.NobttiApp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBv-M-6FxmSOu3L7GfaygulCEVdTmfBS7o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

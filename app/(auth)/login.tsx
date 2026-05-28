@@ -10,6 +10,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const [secureText, setSecureText] = useState(true); // Default to hidden
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -50,8 +51,22 @@ export default function LoginScreen() {
         value={password}
         onChangeText={setPassword}
         style={styles.input}
-        secureTextEntry
+        secureTextEntry={secureText} // Use the state variable here
+        right={
+          <TextInput.Icon
+            icon={secureText ? "eye" : "eye-off"}
+            onPress={() => setSecureText(!secureText)}
+          />
+        }
       />
+
+      {/* <TextInput
+        label="كلمة السر"
+        value={password}
+        onChangeText={setPassword}
+        style={styles.input}
+        secureTextEntry
+      /> */}
 
       <Button
         mode="contained"
@@ -77,5 +92,5 @@ const styles = StyleSheet.create({
   title: { textAlign: 'center', marginBottom: 30, fontSize: 24, fontWeight: 'bold', color: '#6200ee' },
   input: { marginBottom: 15, color: '#6200ee', borderRadius: 10 },
   button: { marginTop: 10, paddingVertical: 5, borderRadius: 8, fontWeight: 'bold', color: '#fff' },
-  signUpButton: { marginTop: 10, paddingVertical: 7, color: '#020000', backgroundColor: '#808080', fontWeight: 'bold' },
+  signUpButton: { marginTop: 10, paddingVertical: 5, borderRadius: 8, fontWeight: 'bold', color: '#fff' },
 });
