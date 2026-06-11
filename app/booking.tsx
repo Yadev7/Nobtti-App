@@ -40,7 +40,7 @@ export default function BookingScreen() {
         }
       } catch (error) {
         console.error("Error fetching data:", error);
-      } finaly {
+      } finally {
         setFetchingUser(false);
       }
     };
