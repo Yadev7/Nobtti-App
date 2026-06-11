@@ -3,9 +3,11 @@ import { signOut } from 'firebase/auth';
 import { collection, doc, getDoc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import { Alert, FlatList, Linking, Modal, StyleSheet, View } from 'react-native';
-import { ActivityIndicator, Avatar, Button, Card, IconButton, List, Text, Title } from 'react-native-paper';
+import { ActivityIndicator, Avatar, Button, Card, IconButton, List, Text, TextInput, Title } from 'react-native-paper';
+import QRCode from 'react-native-qrcode-svg';
 import { auth, db } from '../../constants/firebase';
 import { registerForPushNotificationsAsync } from '../../services/notificationService';
+import { submitReviewAndUpdateProfessional } from '../../services/ratingService'; // 🛡️ استدعاء خدمة تقييم المهني
 
 export default function DashboardScreen() {
   const [bookings, setBookings] = useState<any[]>([]);
@@ -43,6 +45,8 @@ export default function DashboardScreen() {
               q = query(collection(db, "bookings"), where("userId", "==", user.uid));
             }
 
+            setLoading(false);
+
             unsubscribe = onSnapshot(q, 
               (snapshot) => {
                 const data: any[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -57,11 +61,9 @@ export default function DashboardScreen() {
                   const dateB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
                   return (isNaN(dateB) ? 0 : dateB) - (isNaN(dateA) ? 0 : dateA);
                 }));
-                setLoading(false);
               },
               (error) => {
                 console.error("🚨 الخطأ ف الـ Firestore Snapshot: ", error.message);
-                setLoading(false);
               }
             );
           } else {
@@ -91,10 +93,33 @@ export default function DashboardScreen() {
   const submitRating = async () => {
     if (!selectedBookingForRating) return;
     try {
-      await updateDoc(doc(db, "bookings", selectedBookingForRating.id), { rating: ratingScore, comment: comment });
+      const bookingId = selectedBookingForRating.id;
+      const proId = selectedBookingForRating.adminId; 
+      const customerId = auth.currentUser?.uid;
+
+      if (!customerId) return;
+
+      // 1. تحديث تقييم الموعد
+      await updateDoc(doc(db, "bookings", bookingId), { 
+        rating: ratingScore, 
+        comment: comment 
+      });
+
+      // 2. تحديث الحساب د المهني (المعدل العام للنجوم)
+      const result = await submitReviewAndUpdateProfessional(proId, bookingId, customerId, ratingScore, comment);
+
+      if (result && result.success) {
+        Alert.alert("شكراً لك ✅", "تم تسجيل تقييمك وتحديث حساب المهني بنجاح");
+      } else {
+        Alert.alert("تم التقييم ✅", "تم حفظ التقييم بنجاح");
+      }
+
       setRatingModalVisible(false);
+      setComment('');
+      setRatingScore(5);
     } catch (error) {
-      console.error(error);
+      console.error("🚨 خطأ أثناء إرسال التقييم: ", error);
+      Alert.alert("خطأ ❌", "فشل ف حفظ التقييم");
     }
   };
 
@@ -118,7 +143,6 @@ export default function DashboardScreen() {
               <View style={[styles.statBox, { borderTopColor: 'orange' }]}><Text style={[styles.statNum, { color: 'orange' }]}>{stats?.pending || 0}</Text><Text style={styles.statLab}>جديدة</Text></View>
             </View>
             
-            {/* ⚠️ حيدنا الخريطة الكبيرة ديال المهني مؤقتا للتجربة */}
             <Title style={styles.sectionTitle}>🗺️ موقع العمل (مخفي مؤقتا للتيست)</Title>
             
             <Button mode="contained" icon="qrcode-scan" onPress={() => router.push('/scanner' as any)} style={styles.scannerBtn}>
@@ -164,7 +188,6 @@ export default function DashboardScreen() {
                   )}
                 />
 
-                {/* ⚠️ حيدنا الخريطة المصغرة تماماً للتجربة */}
                 {role === 'user' && item.status === 'confirmed' && (
                   <Text style={{textAlign: 'center', color: 'gray', marginVertical: 5}}>📍 نظام الخرائط مفعل (مخفي ف التيست)</Text>
                 )}
@@ -177,12 +200,24 @@ export default function DashboardScreen() {
                     <Button onPress={() => updateStatus(item.id, item, 'rejected')}>رفض</Button>
                   </>
                 )}
+                
                 {role === 'user' && item.status === 'confirmed' && (
                   <Button icon="qrcode" mode="contained" onPress={() => { setSelectedBookingId(item.id); setQrModalVisible(true); }}>كود الحضور</Button>
                 )}
-                {role === 'user' && item.status === 'completed' && !item.rating && (
-                  <Button icon="star" mode="contained" buttonColor="#FFD700" textColor="#000" onPress={() => { setSelectedBookingForRating(item); setRatingModalVisible(true); }}>قيم الخدمة</Button>
+
+                {/* 🛡️ هنا الـزيادة والنواقص مريغلة: زر تقييم المهني للزبون */}
+                {role === 'user' && (item.status === 'completed' || item.status === 'confirmed') && !item.rating && (
+                  <Button 
+                    icon="star" 
+                    mode="contained" 
+                    buttonColor="#FFD700" 
+                    textColor="#000" 
+                    onPress={() => { setSelectedBookingForRating(item); setRatingModalVisible(true); }}
+                  >
+                    قيم المهني ⭐
+                  </Button>
                 )}
+
                 {item.status !== 'rejected' && item.status !== 'completed' && item.phone && (
                   <IconButton icon="whatsapp" iconColor="green" onPress={() => Linking.openURL(`whatsapp://send?phone=${item.phone}`)} />
                 )}
@@ -192,22 +227,35 @@ export default function DashboardScreen() {
         }}
       />
 
+      {/* الـ Rating Modal */}
       <Modal visible={ratingModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Title>كيف كانت خدمتك؟ ⭐</Title>
+            <View style={styles.starsRow}>
+              {[1, 2, 3, 4, 5].map((s) => (
+                <IconButton key={s} icon={s <= ratingScore ? "star" : "star-outline"} iconColor="#FFD700" size={32} onPress={() => setRatingScore(s)} />
+              ))}
+            </View>
+            <TextInput label="تعليقك (اختياري)" value={comment} onChangeText={setComment} mode="outlined" multiline style={styles.ratingInput} contentStyle={{ textAlign: 'right' }} />
+            <Button mode="contained" onPress={submitRating} style={styles.submitBtn}>إرسال التقييم</Button>
             <Button onPress={() => setRatingModalVisible(false)}>إلغاء</Button>
           </View>
         </View>
       </Modal>
       
+      {/* الـ QR Code Modal */}
       <Modal visible={qrModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Title>وري الكود للمهني 🤳</Title>
-            {/* ⚠️ حيدنا كومبوننت الـ QRCode وعوضناه بـ Text عادي عشان نعرفو واش منو الكراش */}
-            <Text style={{ fontSize: 16, marginVertical: 20, fontWeight: 'bold' }}>ID: {selectedBookingId}</Text>
-            <Button onPress={() => setQrModalVisible(false)}>إغلاق</Button>
+            {selectedBookingId && selectedBookingId.trim() !== "" ? (
+              <QRCode value={selectedBookingId} size={200} color="#6200ee" />
+            ) : (
+              <ActivityIndicator size="small" color="#6200ee" />
+            )}
+            <Text style={{ fontSize: 12, marginTop: 10, color: 'gray' }}>ID: {selectedBookingId}</Text>
+            <Button onPress={() => setQrModalVisible(false)} style={{ marginTop: 20 }}>إغلاق</Button>
           </View>
         </View>
       </Modal>
@@ -232,4 +280,7 @@ const styles = StyleSheet.create({
   empty: { textAlign: 'center', marginTop: 20, color: '#999' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { backgroundColor: '#fff', padding: 25, borderRadius: 20, alignItems: 'center', width: '85%' },
+  starsRow: { flexDirection: 'row', marginVertical: 10 },
+  ratingInput: { width: '100%', marginBottom: 15 },
+  submitBtn: { width: '100%', marginBottom: 5 },
 });

@@ -38,7 +38,7 @@ export default function ProfileScreen() {
         }
       } catch (error) {
         console.error(error);
-      } finaly {
+      } finally {
         setLoading(false);
       }
     };
@@ -64,7 +64,7 @@ export default function ProfileScreen() {
       Alert.alert("تم بنجاح ✅", "لقينا إحداثيات المحل ديالك، ما تنساش تبرك على حفظ التغييرات.");
     } catch {
       Alert.alert("خطأ ❌", "ما قدرناش نجيبو الموقع، تأكد من الـ GPS.");
-    } finaly {
+    } finally {
       setLocating(false);
     }
   };
@@ -88,7 +88,7 @@ export default function ProfileScreen() {
       }
     } catch {
       Alert.alert("خطأ ❌", "وقع مشكل أثناء التحديث");
-    } finaly {
+    } finally {
       setUpdating(false);
     }
   };

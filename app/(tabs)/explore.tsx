@@ -20,11 +20,13 @@ export default function ExploreScreen() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setAllProfessionals(data);
+    }, (error) => {
+      console.error("🚨 خطأ ف جلب المهنيين: ", error.message);
     });
     return () => unsubscribe();
   }, []);
 
-  // 2. ✨ التعديل السحري: التصفية المباشرة بدون UseEffect
+  // 2. التصفية المباشرة المحمية
   const filteredPros = useMemo(() => {
     let filtered = allProfessionals;
 
@@ -34,7 +36,7 @@ export default function ExploreScreen() {
 
     if (searchQuery.trim() !== '') {
       filtered = filtered.filter(pro =>
-        pro.fullName?.toLowerCase().includes(searchQuery.toLowerCase())
+        pro.fullName && typeof pro.fullName === 'string' && pro.fullName.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
@@ -50,7 +52,7 @@ export default function ExploreScreen() {
 
       <Searchbar
         placeholder="قلب على مهني..."
-        onChangeText={setSearchQuery} // تحديث مباشر للـ State
+        onChangeText={setSearchQuery}
         value={searchQuery}
         style={styles.searchBar}
         elevation={1}
@@ -62,7 +64,7 @@ export default function ExploreScreen() {
             <Chip
               key={cat}
               selected={selectedCategory === cat}
-              onPress={() => setSelectedCategory(cat)} // تحديث مباشر للـ State
+              onPress={() => setSelectedCategory(cat)}
               style={[styles.chip, selectedCategory === cat ? styles.selectedChip : styles.unselectedChip]}
               selectedColor={selectedCategory === cat ? "#fff" : "#6200ee"}
               showSelectedCheck={false}
@@ -80,20 +82,18 @@ export default function ExploreScreen() {
         renderItem={({ item }) => (
           <Card style={styles.card}>
             <Card.Title
-              title={item.fullName}
-              subtitle={item.profession}
+              title={item.fullName || 'مهني بدون اسم'}
+              subtitle={item.profession || 'خدمة'}
               titleStyle={{ color: '#6200ee', textAlign: 'right' }}
               subtitleStyle={{ color: '#666', textAlign: 'right' }}
               left={(props) => <Avatar.Icon {...props} icon="account-tie" style={{ backgroundColor: '#eaddff' }} color="#6200ee" />}
             />
             <Card.Content style={{ alignItems: 'flex-start' }}>
-              {/* عرض النجوم والتقييمات مريغل وبشكل فوري */}
               <Text variant="bodySmall" style={{ color: '#FFD700', fontWeight: 'bold' }}>
                 ⭐ {item.averageRating ? item.averageRating.toFixed(1) : "جديد"} ({item.reviewsCount || 0} تقييم)
               </Text>
             </Card.Content>
             <Card.Actions>
-              {/* تصحيح تمرير الـ adminId باستعمال الـ uid الحقيقي د المستخدم من الداتابيز */}
               <Button mode="contained" buttonColor="#6200ee" onPress={() => router.push(`/booking?adminId=${item.id}` as any)}>
                 حجز موعد الآن
               </Button>
