@@ -23,19 +23,24 @@ export default function ProfileScreen() {
   useEffect(() => {
     const fetchProfile = async () => {
       const user = auth.currentUser;
-      if (user) {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setFullName(data.fullName || '');
-          setPhone(data.phone || '');
-          setRole(data.role || 'user');
-          setProfession(data.profession || 'حلاق');
-          setLocation(data.location || '');
-          setLocationCoords(data.locationCoords || null);
+      try {
+        if (user) {
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            setFullName(data.fullName || '');
+            setPhone(data.phone || '');
+            setRole(data.role || 'user');
+            setProfession(data.profession || 'حلاق');
+            setLocation(data.location || '');
+            setLocationCoords(data.locationCoords || null);
+          }
         }
+      } catch (error) {
+        console.error(error);
+      } finaly {
+        setLoading(false);
       }
-      setLoading(false);
     };
     fetchProfile();
   }, []);
@@ -49,7 +54,7 @@ export default function ProfileScreen() {
         return;
       }
 
-      let currentLoc = await Location.getCurrentPositionAsync({});
+      let currentLoc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       const coords = {
         latitude: currentLoc.coords.latitude,
         longitude: currentLoc.coords.longitude,
@@ -59,7 +64,7 @@ export default function ProfileScreen() {
       Alert.alert("تم بنجاح ✅", "لقينا إحداثيات المحل ديالك، ما تنساش تبرك على حفظ التغييرات.");
     } catch {
       Alert.alert("خطأ ❌", "ما قدرناش نجيبو الموقع، تأكد من الـ GPS.");
-    } finally {
+    } finaly {
       setLocating(false);
     }
   };
@@ -83,25 +88,25 @@ export default function ProfileScreen() {
       }
     } catch {
       Alert.alert("خطأ ❌", "وقع مشكل أثناء التحديث");
-    } finally {
+    } finaly {
       setUpdating(false);
     }
   };
 
-  if (loading) return <ActivityIndicator style={{ flex: 1 }} size="large" color="#6200ee" />;
+  if (loading) return <ActivityIndicator style={{ flex: 1, justifyContent: 'center' }} size="large" color="#6200ee" />;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={styles.header}>
-        <Avatar.Text size={80} label={fullName.substring(0, 1)} style={{ backgroundColor: '#6200ee' }} />
+        <Avatar.Text size={80} label={fullName.substring(0, 1) || "U"} style={{ backgroundColor: '#6200ee' }} />
         <Title style={styles.nameText}>{fullName}</Title>
         <Text style={styles.roleTag}>{role === 'pro' ? "حساب مهني" : "حساب زبون"}</Text>
       </View>
 
       <Card style={styles.formCard}>
         <Card.Content>
-          <TextInput label="الاسم الكامل" value={fullName} onChangeText={setFullName} mode="outlined" style={styles.input} />
-          <TextInput label="رقم الهاتف (WhatsApp)" value={phone} onChangeText={setPhone} mode="outlined" keyboardType="phone-pad" style={styles.input} />
+          <TextInput label="الاسم الكامل" value={fullName} onChangeText={setFullName} mode="outlined" style={styles.input} contentStyle={styles.inputContent} />
+          <TextInput label="رقم الهاتف (WhatsApp)" value={phone} onChangeText={setPhone} mode="outlined" keyboardType="phone-pad" style={styles.input} contentStyle={styles.inputContent} />
 
           {role === 'pro' && (
             <>
@@ -121,11 +126,11 @@ export default function ProfileScreen() {
                 ))}
               </View>
 
-              <TextInput label="العنوان (كتابةً)" value={location} onChangeText={setLocation} mode="outlined" style={styles.input} />
+              <TextInput label="العنوان (كتابةً)" value={location} onChangeText={setLocation} mode="outlined" style={styles.input} contentStyle={styles.inputContent} />
               
               <View style={styles.locationSection}>
                 <Text style={styles.locationTitle}>موقع المحل على الخريطة 🗺️</Text>
-                <Button mode="outlined" icon="map-marker-radius" onPress={handleGetLocation} loading={locating} style={styles.locationBtn}>
+                <Button mode="outlined" icon="map-marker-radius" onPress={handleGetLocation} loading={locating} disabled={locating} style={styles.locationBtn}>
                   {locationCoords ? "تحديث إحداثيات الموقع" : "تحديد موقع المحل حالياً"}
                 </Button>
                 {locationCoords && <Text style={styles.locationStatus}>✅ الموقع مسجل بنجاح</Text>}
@@ -133,7 +138,7 @@ export default function ProfileScreen() {
             </>
           )}
 
-          <Button mode="contained" onPress={handleUpdate} loading={updating} disabled={updating} style={styles.saveBtn}>
+          <Button mode="contained" onPress={handleUpdate} loading={updating} disabled={updating || locating} style={styles.saveBtn}>
             حفظ التغييرات
           </Button>
 
@@ -153,7 +158,8 @@ const styles = StyleSheet.create({
   nameText: { marginTop: 10, fontSize: 22, fontWeight: 'bold', color: '#6200ee' },
   roleTag: { color: '#6200ee', fontWeight: 'bold', fontSize: 14, backgroundColor: '#eaddff', paddingHorizontal: 15, paddingVertical: 4, borderRadius: 20 },
   formCard: { marginHorizontal: 15, borderRadius: 15, elevation: 3 },
-  input: { marginBottom: 15, textAlign: 'right' },
+  input: { marginBottom: 15 },
+  inputContent: { textAlign: 'right', writingDirection: 'rtl' },
   sectionLabel: { fontSize: 15, fontWeight: 'bold', color: '#6200ee', marginBottom: 8, textAlign: 'right' },
   chipContainer: { flexDirection: 'row-reverse', flexWrap: 'wrap', gap: 8, marginBottom: 15, justifyContent: 'flex-start' },
   chip: { height: 40, justifyContent: 'center' },

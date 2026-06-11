@@ -5,8 +5,8 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Linking, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { ActivityIndicator, Avatar, Button, Card, Text, TextInput, Title } from 'react-native-paper';
-import { auth, db } from '../constants/firebase'; // تأكد من صحة مسار ملف الفايربيس عندك
-import { sendPushNotification } from '../services/notificationService'; // استدعاء الدالة الصحيحة من الـ Service
+import { auth, db } from '../constants/firebase';
+import { sendPushNotification } from '../services/notificationService';
 
 export default function BookingScreen() {
   const [name, setName] = useState('');
@@ -17,18 +17,16 @@ export default function BookingScreen() {
   const [showPicker, setShowPicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [fetchingUser, setFetchingUser] = useState(true);
-
   const [proInfo, setProInfo] = useState<any>(null);
 
   const router = useRouter();
-  const { adminId } = useLocalSearchParams(); // هاد الـ adminId كيمثل الـ professionalId
+  const { adminId } = useLocalSearchParams();
 
   useEffect(() => {
     const fetchAllData = async () => {
       const user = auth.currentUser;
       try {
         if (user) {
-          // جلب بيانات الزبون الحالي من كوليكشن users
           const userDoc = await getDoc(doc(db, "users", user.uid));
           if (userDoc.exists()) {
             setName(userDoc.data().fullName || '');
@@ -36,14 +34,13 @@ export default function BookingScreen() {
           }
         }
         
-        // جلب بيانات المهني من كوليكشن users
         const proDoc = await getDoc(doc(db, "users", adminId as string));
         if (proDoc.exists()) {
           setProInfo(proDoc.data());
         }
       } catch (error) {
         console.error("Error fetching data:", error);
-      } finally {
+      } finaly {
         setFetchingUser(false);
       }
     };
@@ -65,16 +62,15 @@ export default function BookingScreen() {
   };
 
   const handleBooking = async () => {
-    if (!name || !phone || !service) {
+    if (!name.trim() || !phone.trim() || !service.trim()) {
       Alert.alert("تنبيه ⚠️", "عفاك عمر كاع المعلومات المطلوبة");
       return;
     }
     setLoading(true);
     try {
-      // 1. حفظ الموعد في كوليكشن bookings
       await addDoc(collection(db, "bookings"), {
         userId: auth.currentUser?.uid,
-        adminId: adminId, // ID ديال المهني
+        adminId: adminId,
         customerName: name,
         phone: phone,
         service: service,
@@ -85,34 +81,34 @@ export default function BookingScreen() {
         proLocation: proInfo?.locationCoords || null
       });
 
-      // 2. تفعيل الإشعار الفوري للمهني باستعمال الـ expoPushToken الصحيح
+      // إرسال الإشعار للمهني بالـ Parameters الصحيحة الموحدة
       if (proInfo?.expoPushToken) {
-        // عيطنا لدالة الـ Service اللّي صاوبنا بـ بارامترات مطابقة
-        await sendPushNotification(proInfo.expoPushToken, name);
-      } else {
-        console.log("المهني ما عندوش توكن مسجل، تم تجاوز الإشعار.");
+        await sendPushNotification(
+          proInfo.expoPushToken, 
+          '🔔 موعد جديد معلّق!', 
+          `قام الزبون ${name} بحجز موعد جديد عندك، يرجى المراجعة والقبول.`
+        );
       }
 
-      setLoading(false);
-      Alert.alert("تم بنجاح ✅", "الموعد تسجل بنجاح، وصصيفطنا إشعار فوري للمهني حالا.");
+      Alert.alert("تم بنجاح ✅", "الموعد تسجل بنجاح، وصيفطنا إشعار فوري للمهني حالا.");
       router.replace('/(tabs)');
     } catch (error) {
       console.error(error);
       Alert.alert("خطأ ❌", "وقع مشكل أثناء تأكيد الحجز، حاول مرة أخرى");
+    } finally {
       setLoading(false);
     }
   };
 
-  if (fetchingUser) return <ActivityIndicator style={{ flex: 1 }} size="large" color="#6200ee" />;
+  if (fetchingUser) return <ActivityIndicator style={{ flex: 1, justifyContent: 'center' }} size="large" color="#6200ee" />;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Card style={styles.proCard}>
         <Card.Content style={styles.proHeader}>
-          <Avatar.Text size={50} label={proInfo?.fullName?.substring(0,1)} style={{ backgroundColor: '#6200ee' }} />
+          <Avatar.Text size={50} label={proInfo?.fullName?.substring(0,1) || "M"} style={{ backgroundColor: '#6200ee' }} />
           <View style={{ marginLeft: 15, alignItems: 'flex-start' }}>
             <Title>{proInfo?.fullName}</Title>
-            {/* مطابقة حقول التقييم الحقيقية: averageRating و reviewsCount */}
             <Text style={{ color: '#FFD700', fontWeight: 'bold' }}>
               ⭐ {proInfo?.averageRating ? proInfo.averageRating.toFixed(1) : "جديد"} ({proInfo?.reviewsCount || 0} تقييم)
             </Text>
@@ -141,9 +137,9 @@ export default function BookingScreen() {
 
       <Title style={styles.sectionTitle}>معلومات الحجز 📝</Title>
       
-      <TextInput label="الاسم الكامل" value={name} onChangeText={setName} mode="outlined" style={styles.input} />
-      <TextInput label="رقم الهاتف" value={phone} onChangeText={setPhone} mode="outlined" keyboardType="phone-pad" style={styles.input} />
-      <TextInput label="نوع الخدمة" value={service} onChangeText={setService} mode="outlined" style={styles.input} />
+      <TextInput label="الاسم الكامل" value={name} onChangeText={setName} mode="outlined" style={styles.input} contentStyle={styles.inputContent} />
+      <TextInput label="رقم الهاتف" value={phone} onChangeText={setPhone} mode="outlined" keyboardType="phone-pad" style={styles.input} contentStyle={styles.inputContent} />
+      <TextInput label="نوع الخدمة" value={service} onChangeText={setService} mode="outlined" style={styles.input} contentStyle={styles.inputContent} />
 
       <View style={styles.dateTimeContainer}>
         <Button mode="outlined" onPress={() => { setMode('date'); setShowPicker(true) }} icon="calendar" style={styles.dateTimeBtn}>
@@ -173,7 +169,8 @@ const styles = StyleSheet.create({
   mapWrapper: { height: 200, borderRadius: 15, overflow: 'hidden', marginBottom: 20, elevation: 3 },
   map: { width: '100%', height: '100%' },
   gpsBtn: { position: 'absolute', bottom: 10, right: 10, backgroundColor: '#6200ee' },
-  input: { marginBottom: 12, backgroundColor: '#fff', textAlign: 'right' },
+  input: { marginBottom: 12, backgroundColor: '#fff' },
+  inputContent: { textAlign: 'right', writingDirection: 'rtl' }, // فرض اتجاه الكود العربي للـ RTL
   dateTimeContainer: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   dateTimeBtn: { flex: 1 },
   button: { paddingVertical: 5, borderRadius: 10, backgroundColor: '#6200ee' }

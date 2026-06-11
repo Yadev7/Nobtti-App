@@ -10,32 +10,38 @@ export default function SignupScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState(''); // ✨ تعديل: ستايت جديد لرقم الهاتف إجباري ف الـ Signup
   const [profession, setProfession] = useState('حلاق');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
   const [role, setRole] = useState('pro');
+  const router = useRouter();
 
-  // اللستة الرسمية الموحدة للمهن فـ نوبتي
   const professions = ["حلاق", "طبيب", "محامي", "ميكانيكي", "خياط", "مصلح"];
 
   const handleSignup = async () => {
-    if (!email || !password || !fullName) {
-      Alert.alert("خطأ", "عفاك عمر كاع الخانات");
+    if (!email.trim() || !password.trim() || !fullName.trim() || !phone.trim()) {
+      Alert.alert("خطأ ⚠️", "عفاك عمر كاع الخانات بما فيها رقم الهاتف.");
+      return;
+    }
+
+    if (phone.trim().length < 10) {
+      Alert.alert("خطأ ⚠️", "عفاك دخل رقم هاتف مغربي صحيح (مثلا: 0661xxxxxx).");
       return;
     }
 
     setLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
       const user = userCredential.user;
 
+      // حفظ الـ Data كاملة مكمولة ف الـ Firestore
       await setDoc(doc(db, "users", user.uid), {
         uid: user.uid,
-        fullName: fullName,
-        email: email,
+        fullName: fullName.trim(),
+        email: email.trim(),
+        phone: phone.trim(), // الحقل دابا عامر ومضمون للـ WhatsApp والإشعارات
         profession: role === 'pro' ? profession : 'زبون',
         role: role,
-        phone: '', // حقل فارغ أولي لتفادي الـ undefined
         location: '',
         locationCoords: null,
         averageRating: 0,
@@ -43,12 +49,16 @@ export default function SignupScreen() {
         createdAt: new Date().toISOString(),
       });
 
-      setLoading(false);
-      Alert.alert("مبروك 🎉", "تم إنشاء حسابك بنجاح");
+      Alert.alert("مبروك 🎉", "تم إنشاء حسابك بنجاح ف نوبتي.");
       router.replace(role === 'pro' ? '/(tabs)' : '/(tabs)/explore');
     } catch (error: any) {
+      console.error(error);
+      let errMsg = error.message;
+      if (error.code === 'auth/email-already-in-use') errMsg = "هاد الإيميل ديجا مسجل بيه حساب آخر.";
+      if (error.code === 'auth/weak-password') errMsg = "كلمة السر ضعيفة، خاصها تكون من 6 د الرموز أو أكثر.";
+      Alert.alert("خطأ ❌", errMsg);
+    } finally {
       setLoading(false);
-      Alert.alert("خطأ ❌", error.message);
     }
   };
 
@@ -57,19 +67,20 @@ export default function SignupScreen() {
       <ScrollView contentContainerStyle={styles.container}>
         <Title style={styles.title}>إنشاء حساب جديد ✨</Title>
 
-        <TextInput label="الاسم الكامل" value={fullName} onChangeText={setFullName} mode="flat" style={styles.input} />
-        <TextInput label="الإيميل" value={email} onChangeText={setEmail} mode="flat" style={styles.input} keyboardType="email-address" autoCapitalize="none" />
-        <TextInput label="كلمة السر" value={password} onChangeText={setPassword} mode="flat" style={styles.input} secureTextEntry />
+        <TextInput label="الاسم الكامل" value={fullName} onChangeText={setFullName} mode="outlined" style={styles.input} contentStyle={styles.inputContent} activeOutlineColor="#6200ee" />
+        <TextInput label="رقم الهاتف (WhatsApp)" value={phone} onChangeText={setPhone} mode="outlined" keyboardType="phone-pad" style={styles.input} contentStyle={styles.inputContent} activeOutlineColor="#6200ee" placeholder="06xxxxxxxx" />
+        <TextInput label="الإيميل" value={email} onChangeText={setEmail} mode="outlined" style={styles.input} contentStyle={styles.inputContent} activeOutlineColor="#6200ee" keyboardType="email-address" autoCapitalize="none" />
+        <TextInput label="كلمة السر" value={password} onChangeText={setPassword} mode="outlined" style={styles.input} contentStyle={styles.inputContent} activeOutlineColor="#6200ee" secureTextEntry />
 
-        <Text style={styles.label}>ساتسجل ك:</Text>
+        <Text style={styles.label}>سأتسجل كـ:</Text>
         <RadioButton.Group onValueChange={value => setRole(value)} value={role}>
-          <View style={styles.radioItem}><RadioButton value="pro" /><Text style={styles.radioText}>صاحب محل (مهني)</Text></View>
-          <View style={styles.radioItem}><RadioButton value="user" /><Text style={styles.radioText}>زبون</Text></View>
+          <View style={styles.radioItem}><RadioButton value="pro" color="#6200ee" /><Text style={styles.radioText}>صاحب محل (مهني)</Text></View>
+          <View style={styles.radioItem}><RadioButton value="user" color="#6200ee" /><Text style={styles.radioText}>زبون عادي</Text></View>
         </RadioButton.Group>
 
         {role === 'pro' && (
           <View style={{ marginTop: 10 }}>
-            <Text style={styles.label}>حدد مجال عملك:</Text>
+            <Text style={styles.label}>حدد مجال عملك الحالي:</Text>
             <View style={styles.professionGrid}>
               {professions.map((p) => {
                 const isSelected = profession === p;
@@ -89,12 +100,12 @@ export default function SignupScreen() {
           </View>
         )}
 
-        <Button mode="contained" onPress={handleSignup} loading={loading} style={styles.button}>
-          إنشاء الحساب
+        <Button mode="contained" onPress={handleSignup} loading={loading} disabled={loading} style={styles.button}>
+          إنشاء الحساب وتأكيده
         </Button>
 
-        <Button onPress={() => router.replace('login' as any)} style={styles.loginButton}>
-          عندك حساب؟ دخل من هنا
+        <Button onPress={() => router.replace('login' as any)} style={styles.loginButton} textColor="#6200ee">
+          عندك حساب؟ دخل مباشرة من هنا
         </Button>
       </ScrollView>
     </Provider>
@@ -102,14 +113,15 @@ export default function SignupScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, flexGrow: 1, justifyContent: 'center', backgroundColor: '#fff' },
+  container: { padding: 20, flexGrow: 1, justifyContent: 'center', backgroundColor: '#fff', paddingTop: 40 },
   title: { textAlign: 'center', marginBottom: 20, fontSize: 24, fontWeight: 'bold', color: '#6200ee' },
-  input: { marginBottom: 12, textAlign: 'right' },
+  input: { marginBottom: 12, backgroundColor: '#fff' },
+  inputContent: { textAlign: 'right', writingDirection: 'rtl' },
   label: { marginTop: 15, marginBottom: 5, fontWeight: 'bold', fontSize: 16, color: '#6200ee', textAlign: 'right' },
   radioItem: { flexDirection: 'row-reverse', alignItems: 'center', marginVertical: 4, justifyContent: 'flex-end' },
-  button: { marginTop: 25, paddingVertical: 5, backgroundColor: '#6200ee' },
-  radioText: { color: '#6200ee', fontSize: 16, marginRight: 10 },
-  loginButton: { marginTop: 15, paddingVertical: 5, color: '#6200ee' },
+  radioText: { color: '#333', fontSize: 16, marginRight: 10 },
+  button: { marginTop: 25, paddingVertical: 5, backgroundColor: '#6200ee', borderRadius: 8 },
+  loginButton: { marginTop: 15 },
   professionGrid: { flexDirection: 'row-reverse', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 10 },
   professionCard: { width: '48%', marginBottom: 10, backgroundColor: '#f9f9f9', borderWidth: 1, borderColor: '#e0e0e0', elevation: 0 },
   selectedCard: { borderColor: '#6200ee', backgroundColor: '#f3e5f5', borderWidth: 2 },

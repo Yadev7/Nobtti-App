@@ -1,14 +1,13 @@
 import { useRouter } from 'expo-router';
 import { signOut } from 'firebase/auth';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import React, { useEffect, useState } from 'react';
-import { Alert, FlatList, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { FlatList, ScrollView, StyleSheet, View } from 'react-native';
 import { Avatar, Button, Card, Chip, Searchbar, Text, Title } from 'react-native-paper';
 import { auth, db } from '../../constants/firebase';
 
 export default function ExploreScreen() {
   const [allProfessionals, setAllProfessionals] = useState<any[]>([]);
-  const [filteredPros, setFilteredPros] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('الكل');
   const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
@@ -16,7 +15,7 @@ export default function ExploreScreen() {
   const categories = ['الكل', 'حلاق', 'طبيب', 'محامي', 'ميكانيكي', 'خياط', 'مصلح'];
 
   // 1. جلب البيانات Realtime من الفايربيس
-  useEffect(() => {
+  React.useEffect(() => {
     const q = query(collection(db, "users"), where("role", "==", "pro"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -25,8 +24,8 @@ export default function ExploreScreen() {
     return () => unsubscribe();
   }, []);
 
-  // 2. ✨ التعديل السحري: مراقبة أي تغيير ف الداتا أو الفلاتر لتحديث الشاشة ف البلاصة!
-  useEffect(() => {
+  // 2. ✨ التعديل السحري: التصفية المباشرة بدون UseEffect
+  const filteredPros = useMemo(() => {
     let filtered = allProfessionals;
 
     if (selectedCategory !== 'الكل') {
@@ -39,8 +38,8 @@ export default function ExploreScreen() {
       );
     }
 
-    setFilteredPros(filtered);
-  }, [allProfessionals, selectedCategory, searchQuery]); // 👈 كيتنفذ أوتوماتيكياً غير تتبدل أي حاجة هنا
+    return filtered;
+  }, [allProfessionals, selectedCategory, searchQuery]);
 
   return (
     <View style={styles.container}>

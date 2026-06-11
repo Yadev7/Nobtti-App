@@ -12,6 +12,8 @@
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "8.4.4",
+    "@react-navigation/bottom-tabs": "^7.16.2",
+    "@react-navigation/elements": "^2.9.19",
     "expo": "^54.0.33",
     "expo-audio": "~1.1.1",
     "expo-camera": "~17.0.10",
@@ -28,6 +30,7 @@
     "expo-router": "~6.0.23",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
+    "expo-symbols": "~1.0.8",
     "expo-system-ui": "~6.0.9",
     "expo-web-browser": "~15.0.10",
     "firebase": "^10.0.0",
@@ -46,6 +49,8 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.10",
+    "eslint": "^9.39.4",
+    "eslint-config-expo": "^56.0.4",
     "typescript": "~5.9.2"
   },
   "private": true

@@ -10,17 +10,24 @@ export default function TabLayout() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
     const checkRole = async () => {
-      const user = auth.currentUser;
-      if (user) {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          setRole(userDoc.data().role);
+      try {
+        const user = auth.currentUser;
+        if (user) {
+          const userDoc = await getDoc(doc(db, "users", user.uid));
+          if (mounted && userDoc.exists()) {
+            setRole(userDoc.data().role);
+          }
         }
+      } catch (error) {
+        console.error("Failed to fetch user role:", error);
+      } finally {
+        if (mounted) setLoading(false);
       }
-      setLoading(false);
     };
     checkRole();
+    return () => { mounted = false; };
   }, []);
 
   if (loading) {

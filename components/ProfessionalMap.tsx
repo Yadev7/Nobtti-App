@@ -68,7 +68,9 @@ export default function ProfessionalMap() {
   };
 
   useEffect(() => {
-    getMyLocation();
+    (async () => {
+      await getMyLocation();
+    })();
   }, []);
 
   if (loading && !location) {
